@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Day Day Up", layout="wide", initial_sidebar_state="collapsed"
 )
 
-# 注入 CSS：页面紧凑布局 + 图例靠左 + 莫兰迪视觉
+# 1. 注入 CSS：页面布局 + 明显区分非本月日期背景
 st.markdown(
     """
     <style>
@@ -32,6 +32,11 @@ st.markdown(
     .fc-scroller {
         overflow: hidden !important;
     }
+    /* 区分非本月日期：使用较深浅灰色背景与半透明字体，实现明显交替感 */
+    .fc-day-other {
+        background-color: #E2E6EA !important;
+        opacity: 0.65;
+    }
     div[data-testid="stDialog"] > div {
         border-radius: 12px !important;
         border: 1px solid #CFD8DC;
@@ -50,7 +55,7 @@ st.markdown(
 DATA_FILE = "events.json"
 
 
-# 1. 数据持久化
+# 2. 数据持久化
 def load_events():
   if os.path.exists(DATA_FILE):
     with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -67,7 +72,7 @@ if "events" not in st.session_state:
   st.session_state.events = load_events()
 
 
-# 2. 读取节假日（精准中英对照）
+# 3. 读取节假日（双向字典匹配保证中文显示）
 @st.cache_data
 def get_holidays():
   current_year = datetime.datetime.now().year
@@ -75,18 +80,26 @@ def get_holidays():
 
   holiday_events = []
 
-  # 中国主要节假日中英文对照表
-  cn_en_map = {
-      "元旦": "New Year's Day",
-      "春节": "Spring Festival",
-      "清明节": "Tomb-Sweeping Day",
-      "劳动节": "Labor Day",
-      "端午节": "Dragon Boat Festival",
-      "中秋节": "Mid-Autumn Festival",
-      "国庆节": "National Day",
+  # 中国主要节假日中英标准化对照表（兼容库返回中文或英文）
+  cn_holiday_dict = {
+      "元旦": ("元旦", "New Year's Day"),
+      "New Year's Day": ("元旦", "New Year's Day"),
+      "春节": ("春节", "Spring Festival"),
+      "Spring Festival": ("春节", "Spring Festival"),
+      "清明节": ("清明节", "Tomb-Sweeping Day"),
+      "Tomb-Sweeping Day": ("清明节", "Tomb-Sweeping Day"),
+      "劳动节": ("劳动节", "Labor Day"),
+      "Labor Day": ("劳动节", "Labor Day"),
+      "端午节": ("端午节", "Dragon Boat Festival"),
+      "Dragon Boat Festival": ("端午节", "Dragon Boat Festival"),
+      "中秋节": ("中秋节", "Mid-Autumn Festival"),
+      "Mid-Autumn Festival": ("中秋节", "Mid-Autumn Festival"),
+      "Mid-autumn Festival": ("中秋节", "Mid-Autumn Festival"),
+      "国庆节": ("国庆节", "National Day"),
+      "National Day": ("国庆节", "National Day"),
   }
 
-  # 美国主要节假日中英文对照表
+  # 美国节日标准化字典
   us_zh_map = {
       "New Year's Day": "元旦",
       "Martin Luther King Jr. Day": "马丁·路德·金纪念日",
@@ -114,11 +127,14 @@ def get_holidays():
       date_str = single_date.strftime("%Y-%m-%d")
 
       if on_holiday and holiday_name:
-        en_name = cn_en_map.get(holiday_name, "")
+        # 获取中文名和英文名
+        zh_name, en_name = cn_holiday_dict.get(
+            holiday_name, (holiday_name, "")
+        )
         title_str = (
-            f"🇨🇳 {holiday_name} {en_name} (法定休息)"
+            f"🇨🇳 {zh_name} {en_name} (法定休息)"
             if en_name
-            else f"🇨🇳 {holiday_name} (法定休息)"
+            else f"🇨🇳 {zh_name} (法定休息)"
         )
         holiday_events.append({
             "id": f"cn_holiday_{date_str}",
@@ -146,12 +162,10 @@ def get_holidays():
   # 美国节假日
   us_holidays = holidays.US(years=years)
   for date, en_name in us_holidays.items():
-    # 移除常见的后缀修饰词以便查表
     clean_en_name = (
         en_name.replace(" (Observed)", "").replace(" (observed)", "").strip()
     )
     zh_name = us_zh_map.get(clean_en_name, "")
-
     title_str = (
         f"🇺🇸 {zh_name} {clean_en_name}" if zh_name else f"🇺🇸 {clean_en_name}"
     )
@@ -168,7 +182,8 @@ def get_holidays():
 
   return holiday_events
 
-# 3. 弹窗设置排班/事项
+
+# 4. 弹窗设置排班/事项
 @st.dialog("📅 设定日程与排班")
 def manage_event_dialog(selected_date):
   st.write(f"选中日期：**{selected_date}**")
@@ -183,20 +198,15 @@ def manage_event_dialog(selected_date):
 
   category = st.radio("类型", ["排班标记", "自定义事项"], horizontal=True)
 
-  # 浅色莫兰迪调色盘
   color_map = {
-      "工作日": "#90AACB",  # 浅柔蓝
-      "休息日": "#B5C99A",  # 浅草绿
-      "值班日": "#E6C280",  # 浅暖杏
-      "加班日": "#E08E79",  # 浅陶红
+      "工作日": "#90AACB",
+      "休息日": "#B5C99A",
+      "值班日": "#E6C280",
+      "加班日": "#E08E79",
   }
 
   if category == "排班标记":
-    shift = st.selectbox(
-        "班别",
-        ["工作日", "休息日", "值班日", "加班日"],
-        index=0,
-    )
+    shift = st.selectbox("班别", ["工作日", "休息日", "值班日", "加班日"], index=0)
     title_text = f"[{shift}]"
     selected_color = color_map[shift]
   else:
@@ -207,7 +217,7 @@ def manage_event_dialog(selected_date):
         else "",
     )
     title_text = f"📝 {todo_text}"
-    selected_color = "#B39DDB"  # 浅丁香紫
+    selected_color = "#B39DDB"
 
   col1, col2 = st.columns(2)
 
@@ -242,10 +252,10 @@ def manage_event_dialog(selected_date):
         st.rerun()
 
 
-# 4. 主界面展示与标题
+# 5. 主界面展示
 st.title("Day Day Up")
 
-# 5. 总视图与月度排班天数统计面板
+# 6. 总视图与月度排班天数统计面板
 with st.expander("📊 查看排班统计总视图（上月/上年/自定义数据）", expanded=False):
   col_s1, col_s2 = st.columns([1, 2])
   with col_s1:
@@ -262,7 +272,6 @@ with st.expander("📊 查看排班统计总视图（上月/上年/自定义数�
       target_year = st.number_input("年份", value=today.year, step=1)
       filter_prefix = f"{target_year}"
 
-  # 统计逻辑
   counts = {"工作日": 0, "休息日": 0, "值班日": 0, "加班日": 0, "事项": 0}
   for ev in st.session_state.events:
     if ev.get("start", "").startswith(filter_prefix):
@@ -286,7 +295,7 @@ with st.expander("📊 查看排班统计总视图（上月/上年/自定义数�
   c5.metric("🟣 待办事项", f"{counts['事项']} 个")
 
 
-# 6. 图例说明（靠左排列，隐藏代码）
+# 7. 图例说明（靠左排列）
 legend_cols = st.columns([1, 1, 1, 1, 1, 1, 6])
 legend_cols[0].markdown("🔵 **工作日**")
 legend_cols[1].markdown("🟢 **休息日**")
@@ -311,7 +320,7 @@ calendar_options = {
 
 cal_output = calendar(events=all_events, options=calendar_options)
 
-# 7. 监听日历交互（安全兼容校验）
+# 8. 监听日历交互
 if cal_output and isinstance(cal_output, dict):
   if "dateClick" in cal_output:
     date_click_data = cal_output["dateClick"]
