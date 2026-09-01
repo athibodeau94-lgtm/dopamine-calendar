@@ -67,7 +67,7 @@ if "events" not in st.session_state:
   st.session_state.events = load_events()
 
 
-# 2. 读取节假日（防超年报错 + 中英文双语显示）
+# 2. 读取节假日（精准中英对照）
 @st.cache_data
 def get_holidays():
   current_year = datetime.datetime.now().year
@@ -75,20 +75,35 @@ def get_holidays():
 
   holiday_events = []
 
+  # 中国主要节假日中英文对照表
+  cn_en_map = {
+      "元旦": "New Year's Day",
+      "春节": "Spring Festival",
+      "清明节": "Tomb-Sweeping Day",
+      "劳动节": "Labor Day",
+      "端午节": "Dragon Boat Festival",
+      "中秋节": "Mid-Autumn Festival",
+      "国庆节": "National Day",
+  }
+
+  # 美国主要节假日中英文对照表
+  us_zh_map = {
+      "New Year's Day": "元旦",
+      "Martin Luther King Jr. Day": "马丁·路德·金纪念日",
+      "Washington's Birthday": "华盛顿诞辰纪念日",
+      "Memorial Day": "阵亡将士纪念日",
+      "Juneteenth National Independence Day": "六月节",
+      "Independence Day": "独立日",
+      "Labor Day": "劳工节",
+      "Columbus Day": "哥伦布日",
+      "Veterans Day": "退伍军人节",
+      "Thanksgiving": "感恩节",
+      "Christmas Day": "圣诞节",
+  }
+
   # 中国法定节假日 (chinesecalendar)
   start_date = datetime.date(current_year - 1, 1, 1)
   end_date = datetime.date(current_year + 1, 12, 31)
-
-  # 中国主要节日中英文对照映射
-  cn_en_map = {
-      "New Year's Day": "元旦 / New Year's Day",
-      "Spring Festival": "春节 / Spring Festival",
-      "Tomb-Sweeping Day": "清明节 / Tomb-Sweeping Day",
-      "Labor Day": "劳动节 / Labor Day",
-      "Dragon Boat Festival": "端午节 / Dragon Boat Festival",
-      "Mid-Autumn Festival": "中秋节 / Mid-Autumn Festival",
-      "National Day": "国庆节 / National Day",
-  }
 
   for single_date in (
       start_date + datetime.timedelta(days=n)
@@ -99,16 +114,15 @@ def get_holidays():
       date_str = single_date.strftime("%Y-%m-%d")
 
       if on_holiday and holiday_name:
-        # 获取英文名并组合为中英双语
-        en_name = cn_cal.get_holiday_detail(single_date)[1]
-        display_name = (
-            cn_en_map.get(holiday_name, f"{holiday_name}")
-            if holiday_name in cn_en_map
-            else holiday_name
+        en_name = cn_en_map.get(holiday_name, "")
+        title_str = (
+            f"🇨🇳 {holiday_name} {en_name} (法定休息)"
+            if en_name
+            else f"🇨🇳 {holiday_name} (法定休息)"
         )
         holiday_events.append({
             "id": f"cn_holiday_{date_str}",
-            "title": f"🇨🇳 {display_name} (法定休息/Holiday)",
+            "title": title_str,
             "start": date_str,
             "color": "#D98880",  # 浅陶红
             "allDay": True,
@@ -119,7 +133,7 @@ def get_holidays():
         if single_date.weekday() >= 5:  # 周末调休补班
           holiday_events.append({
               "id": f"cn_workday_{date_str}",
-              "title": "🇨🇳 调休上班 / Adjusted Workday",
+              "title": "🇨🇳 调休上班 Adjusted Workday",
               "start": date_str,
               "color": "#90AACB",  # 浅柔蓝
               "allDay": True,
@@ -129,18 +143,22 @@ def get_holidays():
     except NotImplementedError:
       continue
 
-  # 美国节假日 (holidays 库自带中英转换/双语)
-  us_holidays_en = holidays.US(years=years)
-  us_holidays_zh = holidays.US(years=years, language="zh_CN")
-
-  for date, en_name in us_holidays_en.items():
-    zh_name = us_holidays_zh.get(date, en_name)
-    bilingual_name = (
-        f"{zh_name} / {en_name}" if zh_name != en_name else en_name
+  # 美国节假日
+  us_holidays = holidays.US(years=years)
+  for date, en_name in us_holidays.items():
+    # 移除常见的后缀修饰词以便查表
+    clean_en_name = (
+        en_name.replace(" (Observed)", "").replace(" (observed)", "").strip()
     )
+    zh_name = us_zh_map.get(clean_en_name, "")
+
+    title_str = (
+        f"🇺🇸 {zh_name} {clean_en_name}" if zh_name else f"🇺🇸 {clean_en_name}"
+    )
+
     holiday_events.append({
         "id": f"us_holiday_{date}",
-        "title": f"🇺🇸 {bilingual_name}",
+        "title": title_str,
         "start": date.strftime("%Y-%m-%d"),
         "color": "#B0BEC5",  # 浅雾灰
         "allDay": True,
