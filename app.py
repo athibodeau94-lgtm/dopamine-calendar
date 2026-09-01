@@ -36,7 +36,6 @@ st.markdown(
         border-radius: 12px !important;
         border: 1px solid #CFD8DC;
     }
-    /* 统计卡片样式 */
     .metric-card {
         background-color: #ECEFF1;
         border-radius: 8px;
@@ -68,7 +67,7 @@ if "events" not in st.session_state:
   st.session_state.events = load_events()
 
 
-# 2. 读取节假日（中国法定节假日精准匹配 + 美国节日）
+# 2. 读取节假日（防超年报错安全校验）
 @st.cache_data
 def get_holidays():
   current_year = datetime.datetime.now().year
@@ -76,7 +75,7 @@ def get_holidays():
 
   holiday_events = []
 
-  # 中国法定节假日与调休补班 (chinesecalendar)
+  # 中国法定节假日 (chinesecalendar)
   start_date = datetime.date(current_year - 1, 1, 1)
   end_date = datetime.date(current_year + 1, 12, 31)
 
@@ -84,33 +83,36 @@ def get_holidays():
       start_date + datetime.timedelta(days=n)
       for n in range((end_date - start_date).days + 1)
   ):
-    on_holiday, holiday_name = cn_cal.get_holiday_detail(single_date)
-    date_str = single_date.strftime("%Y-%m-%d")
+    try:
+      on_holiday, holiday_name = cn_cal.get_holiday_detail(single_date)
+      date_str = single_date.strftime("%Y-%m-%d")
 
-    if on_holiday and holiday_name:
-      holiday_events.append({
-          "id": f"cn_holiday_{date_str}",
-          "title": f"🇨🇳 {holiday_name} (法定休息)",
-          "start": date_str,
-          "color": "#D98880",  # 浅陶红
-          "allDay": True,
-          "editable": False,
-          "is_holiday": True,
-      })
-    elif not on_holiday and cn_cal.is_workday(single_date):
-      # 判定周末调休补班
-      if single_date.weekday() >= 5:
+      if on_holiday and holiday_name:
         holiday_events.append({
-            "id": f"cn_workday_{date_str}",
-            "title": "🇨🇳 调休上班",
+            "id": f"cn_holiday_{date_str}",
+            "title": f"🇨🇳 {holiday_name} (法定休息)",
             "start": date_str,
-            "color": "#90AACB",  # 浅柔蓝
+            "color": "#D98880",  # 浅陶红
             "allDay": True,
             "editable": False,
             "is_holiday": True,
         })
+      elif not on_holiday and cn_cal.is_workday(single_date):
+        if single_date.weekday() >= 5:  # 周末调休补班
+          holiday_events.append({
+              "id": f"cn_workday_{date_str}",
+              "title": "🇨🇳 调休上班",
+              "start": date_str,
+              "color": "#90AACB",  # 浅柔蓝
+              "allDay": True,
+              "editable": False,
+              "is_holiday": True,
+          })
+    except NotImplementedError:
+      # 超出库数据范围的未来年份跳过，防止报错
+      continue
 
-  # 美国节假日 (浅雾灰)
+  # 美国节假日
   us_holidays = holidays.US(years=years)
   for date, name in us_holidays.items():
     holiday_events.append({
