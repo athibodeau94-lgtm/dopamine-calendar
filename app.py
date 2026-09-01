@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Day Day Up", layout="wide", initial_sidebar_state="collapsed"
 )
 
-# 注入 CSS：压缩顶部边距与日历高度，确保一屏完整显示 1-31 号无需下滑
+# 注入 CSS：压缩顶部边距与日历高度，保证一屏完整显示 1-31 号
 st.markdown(
     """
     <style>
@@ -113,12 +113,12 @@ def manage_event_dialog(selected_date):
 
   category = st.radio("类型", ["排班标记", "自定义事项"], horizontal=True)
 
-  # 莫兰迪高雅调色盘
+  # 莫兰迪调色盘
   color_map = {
-      "普通工作日": "#84A98C",  # 莫兰迪鼠尾草绿
-      "休息日": "#B0C4DE",  # 莫兰迪冰川蓝/灰
-      "值班日": "#E5B869",  # 莫兰迪燕麦黄
-      "加班日": "#D98880",  # 莫兰迪暖陶红
+      "普通工作日": "#84A98C",  # 鼠尾草绿
+      "休息日": "#B0C4DE",  # 冰川蓝/灰
+      "值班日": "#E5B869",  # 燕麦黄
+      "加班日": "#D98880",  # 暖陶红
   }
 
   if category == "排班标记":
@@ -137,7 +137,7 @@ def manage_event_dialog(selected_date):
         else "",
     )
     title_text = f"📝 {todo_text}"
-    selected_color = "#A29BFE"  # 莫兰迪薰衣草紫
+    selected_color = "#A29BFE"  # 薰衣草紫
 
   col1, col2 = st.columns(2)
 
@@ -172,7 +172,7 @@ def manage_event_dialog(selected_date):
         st.rerun()
 
 
-# 4. 主界面展示（Day Day Up）
+# 4. 主界面展示
 st.title("☀️ Day Day Up")
 
 # 图例说明
@@ -195,18 +195,24 @@ calendar_options = {
     "initialView": "dayGridMonth",
     "selectable": True,
     "editable": False,
-    "height": "auto",  # 适配一屏高度
+    "height": "auto",
 }
 
 cal_output = calendar(events=all_events, options=calendar_options)
 
-# 5. 监听日历交互
-if cal_output.get("dateClick"):
-  clicked_date = cal_output["dateClick"]["dateStr"]
-  manage_event_dialog(clicked_date)
+# 5. 监听日历交互（安全兼容校验）
+if cal_output and isinstance(cal_output, dict):
+  if "dateClick" in cal_output:
+    date_click_data = cal_output["dateClick"]
+    clicked_date = date_click_data.get("dateStr") or date_click_data.get("date")
+    if clicked_date:
+      clicked_date = str(clicked_date).split("T")[0]
+      manage_event_dialog(clicked_date)
 
-elif cal_output.get("eventClick"):
-  clicked_event = cal_output["eventClick"]["event"]
-  if not clicked_event.get("extendedProps", {}).get("is_holiday", False):
-    event_date = clicked_event["start"].split("T")[0]
-    manage_event_dialog(event_date)
+  elif "eventClick" in cal_output:
+    event_data = cal_output["eventClick"].get("event", {})
+    if not event_data.get("extendedProps", {}).get("is_holiday", False):
+      start_time = event_data.get("start")
+      if start_time:
+        event_date = str(start_time).split("T")[0]
+        manage_event_dialog(event_date)
