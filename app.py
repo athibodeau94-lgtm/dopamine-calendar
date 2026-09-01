@@ -67,7 +67,7 @@ if "events" not in st.session_state:
   st.session_state.events = load_events()
 
 
-# 2. 读取节假日（防超年报错安全校验）
+# 2. 读取节假日（防超年报错 + 中英文双语显示）
 @st.cache_data
 def get_holidays():
   current_year = datetime.datetime.now().year
@@ -79,6 +79,17 @@ def get_holidays():
   start_date = datetime.date(current_year - 1, 1, 1)
   end_date = datetime.date(current_year + 1, 12, 31)
 
+  # 中国主要节日中英文对照映射
+  cn_en_map = {
+      "New Year's Day": "元旦 / New Year's Day",
+      "Spring Festival": "春节 / Spring Festival",
+      "Tomb-Sweeping Day": "清明节 / Tomb-Sweeping Day",
+      "Labor Day": "劳动节 / Labor Day",
+      "Dragon Boat Festival": "端午节 / Dragon Boat Festival",
+      "Mid-Autumn Festival": "中秋节 / Mid-Autumn Festival",
+      "National Day": "国庆节 / National Day",
+  }
+
   for single_date in (
       start_date + datetime.timedelta(days=n)
       for n in range((end_date - start_date).days + 1)
@@ -88,9 +99,16 @@ def get_holidays():
       date_str = single_date.strftime("%Y-%m-%d")
 
       if on_holiday and holiday_name:
+        # 获取英文名并组合为中英双语
+        en_name = cn_cal.get_holiday_detail(single_date)[1]
+        display_name = (
+            cn_en_map.get(holiday_name, f"{holiday_name}")
+            if holiday_name in cn_en_map
+            else holiday_name
+        )
         holiday_events.append({
             "id": f"cn_holiday_{date_str}",
-            "title": f"🇨🇳 {holiday_name} (法定休息)",
+            "title": f"🇨🇳 {display_name} (法定休息/Holiday)",
             "start": date_str,
             "color": "#D98880",  # 浅陶红
             "allDay": True,
@@ -101,7 +119,7 @@ def get_holidays():
         if single_date.weekday() >= 5:  # 周末调休补班
           holiday_events.append({
               "id": f"cn_workday_{date_str}",
-              "title": "🇨🇳 调休上班",
+              "title": "🇨🇳 调休上班 / Adjusted Workday",
               "start": date_str,
               "color": "#90AACB",  # 浅柔蓝
               "allDay": True,
@@ -109,15 +127,20 @@ def get_holidays():
               "is_holiday": True,
           })
     except NotImplementedError:
-      # 超出库数据范围的未来年份跳过，防止报错
       continue
 
-  # 美国节假日
-  us_holidays = holidays.US(years=years)
-  for date, name in us_holidays.items():
+  # 美国节假日 (holidays 库自带中英转换/双语)
+  us_holidays_en = holidays.US(years=years)
+  us_holidays_zh = holidays.US(years=years, language="zh_CN")
+
+  for date, en_name in us_holidays_en.items():
+    zh_name = us_holidays_zh.get(date, en_name)
+    bilingual_name = (
+        f"{zh_name} / {en_name}" if zh_name != en_name else en_name
+    )
     holiday_events.append({
         "id": f"us_holiday_{date}",
-        "title": f"🇺🇸 {name}",
+        "title": f"🇺🇸 {bilingual_name}",
         "start": date.strftime("%Y-%m-%d"),
         "color": "#B0BEC5",  # 浅雾灰
         "allDay": True,
@@ -126,7 +149,6 @@ def get_holidays():
     })
 
   return holiday_events
-
 
 # 3. 弹窗设置排班/事项
 @st.dialog("📅 设定日程与排班")
