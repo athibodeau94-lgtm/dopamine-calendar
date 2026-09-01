@@ -1,4 +1,3 @@
-
 import datetime
 import json
 import os
@@ -7,25 +6,37 @@ import streamlit as st
 from streamlit_calendar import calendar
 
 st.set_page_config(
-    page_title="多巴胺排班日历", layout="wide", initial_sidebar_state="collapsed"
+    page_title="Day Day Up", layout="wide", initial_sidebar_state="collapsed"
 )
 
-# 注入 CSS 提升多巴胺视觉质感
+# 注入 CSS：压缩顶部边距与日历高度，确保一屏完整显示 1-31 号无需下滑
 st.markdown(
     """
     <style>
-    .stApp {
-        background-color: #FAFAFA;
+    /* 压缩 Streamlit 默认外边距 */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
     }
     h1 {
-        background: linear-gradient(45deg, #FF1744, #FF9100, #00E676, #2979FF);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800 !important;
+        color: #4A5568 !important;
+        font-weight: 700 !important;
+        margin-bottom: 0px !important;
+        padding-bottom: 0px !important;
+    }
+    /* 强制调整日历整体高度与字体 */
+    .fc {
+        max-height: 72vh !important;
+        font-size: 13px !important;
+    }
+    .fc-scroller {
+        overflow: hidden !important;
     }
     div[data-testid="stDialog"] > div {
-        border-radius: 20px !important;
-        border: 2px solid #FF4081;
+        border-radius: 12px !important;
+        border: 1px solid #B8C0CC;
     }
     </style>
 """,
@@ -35,7 +46,7 @@ st.markdown(
 DATA_FILE = "events.json"
 
 
-# 1. 数据持久化读取与保存
+# 1. 数据持久化
 def load_events():
   if os.path.exists(DATA_FILE):
     with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -52,7 +63,7 @@ if "events" not in st.session_state:
   st.session_state.events = load_events()
 
 
-# 2. 读取今明两年的中美法定节假日（多巴胺配色）
+# 2. 读取中美节假日（莫兰迪配色）
 @st.cache_data
 def get_holidays():
   current_year = datetime.datetime.now().year
@@ -62,24 +73,24 @@ def get_holidays():
   us_holidays = holidays.US(years=years)
 
   holiday_events = []
-  # 中国节假日：热带火山红 (#FF1744)
+  # 中国节假日：莫兰迪豆沙红 (#C97A7E)
   for date, name in cn_holidays.items():
     holiday_events.append({
         "id": f"holiday_cn_{date}",
         "title": f"🇨🇳 {name}",
         "start": date.strftime("%Y-%m-%d"),
-        "color": "#FF1744",
+        "color": "#C97A7E",
         "allDay": True,
         "editable": False,
         "is_holiday": True,
     })
-  # 美国节假日：电光蓝色 (#2979FF)
+  # 美国节假日：莫兰迪雾霾蓝 (#6C8EBF)
   for date, name in us_holidays.items():
     holiday_events.append({
         "id": f"holiday_us_{date}",
         "title": f"🇺🇸 {name}",
         "start": date.strftime("%Y-%m-%d"),
-        "color": "#2979FF",
+        "color": "#6C8EBF",
         "allDay": True,
         "editable": False,
         "is_holiday": True,
@@ -87,8 +98,8 @@ def get_holidays():
   return holiday_events
 
 
-# 3. 交互弹窗：点击日期添加/修改排班与事项
-@st.dialog("🌈 记录你的多巴胺日程")
+# 3. 点击日期弹窗设置排班/事项
+@st.dialog("📅 设定日程与排班")
 def manage_event_dialog(selected_date):
   st.write(f"选中日期：**{selected_date}**")
 
@@ -102,12 +113,12 @@ def manage_event_dialog(selected_date):
 
   category = st.radio("类型", ["排班标记", "自定义事项"], horizontal=True)
 
-  # 多巴胺高活力调色盘
+  # 莫兰迪高雅调色盘
   color_map = {
-      "普通工作日": "#00E676",  # 活力薄荷绿
-      "休息日": "#FFD600",  # 明亮阳光黄
-      "值班日": "#FF9100",  # 热情蜜桃橙
-      "加班日": "#FF1744",  # 火山热带红
+      "普通工作日": "#84A98C",  # 莫兰迪鼠尾草绿
+      "休息日": "#B0C4DE",  # 莫兰迪冰川蓝/灰
+      "值班日": "#E5B869",  # 莫兰迪燕麦黄
+      "加班日": "#D98880",  # 莫兰迪暖陶红
   }
 
   if category == "排班标记":
@@ -126,7 +137,7 @@ def manage_event_dialog(selected_date):
         else "",
     )
     title_text = f"📝 {todo_text}"
-    selected_color = "#D500F9"  # 霓虹电光紫
+    selected_color = "#A29BFE"  # 莫兰迪薰衣草紫
 
   col1, col2 = st.columns(2)
 
@@ -161,18 +172,17 @@ def manage_event_dialog(selected_date):
         st.rerun()
 
 
-# 4. 主界面：排班与日历展现
-st.title("📅 多巴胺智能排班日历")
-st.caption("✨ 点击任意日期直接设置排班或事项，碰撞你的彩色工作日程！")
+# 4. 主界面展示（Day Day Up）
+st.title("☀️ Day Day Up")
 
 # 图例说明
 cols = st.columns(6)
-cols[0].markdown("🟢 **工作日** `#00E676`", unsafe_allow_html=True)
-cols[1].markdown("🟡 **休息日** `#FFD600`", unsafe_allow_html=True)
-cols[2].markdown("🟠 **值班日** `#FF9100`", unsafe_allow_html=True)
-cols[3].markdown("🔴 **加班日** `#FF1744`", unsafe_allow_html=True)
-cols[4].markdown("🟣 **事项** `#D500F9`", unsafe_allow_html=True)
-cols[5].markdown("🔵 **美节** `#2979FF`", unsafe_allow_html=True)
+cols[0].markdown("🟢 **工作日** `#84A98C`", unsafe_allow_html=True)
+cols[1].markdown("⚪ **休息日** `#B0C4DE`", unsafe_allow_html=True)
+cols[2].markdown("🟡 **值班日** `#E5B869`", unsafe_allow_html=True)
+cols[3].markdown("🔴 **加班日** `#D98880`", unsafe_allow_html=True)
+cols[4].markdown("🟣 **事项** `#A29BFE`", unsafe_allow_html=True)
+cols[5].markdown("🔵 **美节** `#6C8EBF`", unsafe_allow_html=True)
 
 all_events = get_holidays() + st.session_state.events
 
@@ -185,11 +195,12 @@ calendar_options = {
     "initialView": "dayGridMonth",
     "selectable": True,
     "editable": False,
+    "height": "auto",  # 适配一屏高度
 }
 
 cal_output = calendar(events=all_events, options=calendar_options)
 
-# 5. 监听点击交互事件
+# 5. 监听日历交互
 if cal_output.get("dateClick"):
   clicked_date = cal_output["dateClick"]["dateStr"]
   manage_event_dialog(clicked_date)
