@@ -1,6 +1,6 @@
 [theme]
-primaryColor = "#FF4081"                  # 主按钮：高饱和热带粉
-backgroundColor = "#FAFAFA"              # 背景：干净极简灰白（突显高饱和色彩）
-secondaryBackgroundColor = "#FFF8E1"     # 侧边栏/弹窗：暖亮淡黄
-textColor = "#212121"                    # 文字：深色保证清晰可读
+primaryColor = "#8E9AAF"                  # 莫兰迪蓝灰
+backgroundColor = "#F4F5F7"              # 柔和暖浅灰背景
+secondaryBackgroundColor = "#E2E4E9"     # 莫兰迪浅灰色
+textColor = "#333D47"                    # 深灰蓝文字
 font = "sans serif"
