@@ -295,7 +295,7 @@ with st.expander("📊 查看排班统计总视图（上月/上年/自定义数�
   c5.metric("🟣 待办事项", f"{counts['事项']} 个")
 
 
-# 7. 图例说明（靠左排列）
+# 7. 图例说明与日历渲染（加入 timeZone: 'local' 锁定本地时区）
 legend_cols = st.columns([1, 1, 1, 1, 1, 1, 6])
 legend_cols[0].markdown("🔵 **工作日**")
 legend_cols[1].markdown("🟢 **休息日**")
@@ -316,14 +316,16 @@ calendar_options = {
     "selectable": True,
     "editable": False,
     "height": "auto",
+    "timeZone": "local",  # 关键修复：强制锁定本地时区，防止时区转换导致少一天
 }
 
 cal_output = calendar(events=all_events, options=calendar_options)
 
-# 8. 监听日历交互
+# 8. 监听日历交互（提取原始 dateStr 字符串）
 if cal_output and isinstance(cal_output, dict):
   if "dateClick" in cal_output:
     date_click_data = cal_output["dateClick"]
+    # 优先取不带 ISO 时区偏差的纯日期字符串 dateStr
     clicked_date = date_click_data.get("dateStr") or date_click_data.get("date")
     if clicked_date:
       clicked_date = str(clicked_date).split("T")[0]
