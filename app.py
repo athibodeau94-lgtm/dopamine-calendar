@@ -295,17 +295,7 @@ with st.expander("📊 查看排班统计总视图（上月/上年/自定义数�
   c5.metric("🟣 待办事项", f"{counts['事项']} 个")
 
 
-# 7. 图例说明与日历渲染（加入 timeZone: 'local' 锁定本地时区）
-legend_cols = st.columns([1, 1, 1, 1, 1, 1, 6])
-legend_cols[0].markdown("🔵 **工作日**")
-legend_cols[1].markdown("🟢 **休息日**")
-legend_cols[2].markdown("🟡 **值班日**")
-legend_cols[3].markdown("🔴 **加班日**")
-legend_cols[4].markdown("🟣 **事项**")
-legend_cols[5].markdown("⚪ **美节**")
-
-all_events = get_holidays() + st.session_state.events
-
+# 7. 日历选项（固定 timeZone 为 "UTC"，彻底禁止浏览器时区偏移换算）
 calendar_options = {
     "headerToolbar": {
         "left": "prev,next today",
@@ -316,19 +306,18 @@ calendar_options = {
     "selectable": True,
     "editable": False,
     "height": "auto",
-    "timeZone": "local",  # 关键修复：强制锁定本地时区，防止时区转换导致少一天
+    "timeZone": "UTC",  # 固定为 UTC 模式，点哪天就是哪天，防止浏览器本地时区换算少一天
 }
 
 cal_output = calendar(events=all_events, options=calendar_options)
 
-# 8. 监听日历交互（提取原始 dateStr 字符串）
+# 8. 监听日历交互（直接读取点选的纯日期字符串）
 if cal_output and isinstance(cal_output, dict):
   if "dateClick" in cal_output:
     date_click_data = cal_output["dateClick"]
-    # 优先取不带 ISO 时区偏差的纯日期字符串 dateStr
-    clicked_date = date_click_data.get("dateStr") or date_click_data.get("date")
+    # 取纯日期串 (YYYY-MM-DD)
+    clicked_date = date_click_data.get("dateStr", "").split("T")[0]
     if clicked_date:
-      clicked_date = str(clicked_date).split("T")[0]
       manage_event_dialog(clicked_date)
 
   elif "eventClick" in cal_output:
