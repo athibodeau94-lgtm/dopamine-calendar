@@ -32,7 +32,6 @@ st.markdown(
     .fc-scroller {
         overflow: hidden !important;
     }
-    /* 区分非本月日期：使用较深浅灰色背景与半透明字体，实现明显交替感 */
     .fc-day-other {
         background-color: #E2E6EA !important;
         opacity: 0.65;
@@ -72,7 +71,7 @@ if "events" not in st.session_state:
   st.session_state.events = load_events()
 
 
-# 3. 读取节假日（双向字典匹配保证中文显示）
+# 3. 读取节假日
 @st.cache_data
 def get_holidays():
   current_year = datetime.datetime.now().year
@@ -80,7 +79,6 @@ def get_holidays():
 
   holiday_events = []
 
-  # 中国主要节假日中英标准化对照表（兼容库返回中文或英文）
   cn_holiday_dict = {
       "元旦": ("元旦", "New Year's Day"),
       "New Year's Day": ("元旦", "New Year's Day"),
@@ -99,7 +97,6 @@ def get_holidays():
       "National Day": ("国庆节", "National Day"),
   }
 
-  # 美国节日标准化字典
   us_zh_map = {
       "New Year's Day": "元旦",
       "Martin Luther King Jr. Day": "马丁·路德·金纪念日",
@@ -114,7 +111,6 @@ def get_holidays():
       "Christmas Day": "圣诞节",
   }
 
-  # 中国法定节假日 (chinesecalendar)
   start_date = datetime.date(current_year - 1, 1, 1)
   end_date = datetime.date(current_year + 1, 12, 31)
 
@@ -127,7 +123,6 @@ def get_holidays():
       date_str = single_date.strftime("%Y-%m-%d")
 
       if on_holiday and holiday_name:
-        # 获取中文名和英文名
         zh_name, en_name = cn_holiday_dict.get(
             holiday_name, (holiday_name, "")
         )
@@ -140,18 +135,18 @@ def get_holidays():
             "id": f"cn_holiday_{date_str}",
             "title": title_str,
             "start": date_str,
-            "color": "#D98880",  # 浅陶红
+            "color": "#D98880",
             "allDay": True,
             "editable": False,
             "is_holiday": True,
         })
       elif not on_holiday and cn_cal.is_workday(single_date):
-        if single_date.weekday() >= 5:  # 周末调休补班
+        if single_date.weekday() >= 5:
           holiday_events.append({
               "id": f"cn_workday_{date_str}",
               "title": "🇨🇳 调休上班 Adjusted Workday",
               "start": date_str,
-              "color": "#90AACB",  # 浅柔蓝
+              "color": "#90AACB",
               "allDay": True,
               "editable": False,
               "is_holiday": True,
@@ -159,7 +154,6 @@ def get_holidays():
     except NotImplementedError:
       continue
 
-  # 美国节假日
   us_holidays = holidays.US(years=years)
   for date, en_name in us_holidays.items():
     clean_en_name = (
@@ -174,7 +168,7 @@ def get_holidays():
         "id": f"us_holiday_{date}",
         "title": title_str,
         "start": date.strftime("%Y-%m-%d"),
-        "color": "#B0BEC5",  # 浅雾灰
+        "color": "#B0BEC5",
         "allDay": True,
         "editable": False,
         "is_holiday": True,
@@ -295,7 +289,17 @@ with st.expander("📊 查看排班统计总视图（上月/上年/自定义数�
   c5.metric("🟣 待办事项", f"{counts['事项']} 个")
 
 
-# 7. 日历选项（固定 timeZone 为 "UTC"，彻底禁止浏览器时区偏移换算）
+# 7. 图例说明与日历渲染（锁定 UTC 彻底消除点击错位）
+legend_cols = st.columns([1, 1, 1, 1, 1, 1, 6])
+legend_cols[0].markdown("🔵 **工作日**")
+legend_cols[1].markdown("🟢 **休息日**")
+legend_cols[2].markdown("🟡 **值班日**")
+legend_cols[3].markdown("🔴 **加班日**")
+legend_cols[4].markdown("🟣 **事项**")
+legend_cols[5].markdown("⚪ **美节**")
+
+all_events = get_holidays() + st.session_state.events
+
 calendar_options = {
     "headerToolbar": {
         "left": "prev,next today",
@@ -306,17 +310,18 @@ calendar_options = {
     "selectable": True,
     "editable": False,
     "height": "auto",
-    "timeZone": "UTC",  # 固定为 UTC 模式，点哪天就是哪天，防止浏览器本地时区换算少一天
+    "timeZone": "UTC",
 }
 
 cal_output = calendar(events=all_events, options=calendar_options)
 
-# 8. 监听日历交互（直接读取点选的纯日期字符串）
+# 8. 监听日历交互
 if cal_output and isinstance(cal_output, dict):
   if "dateClick" in cal_output:
     date_click_data = cal_output["dateClick"]
-    # 取纯日期串 (YYYY-MM-DD)
-    clicked_date = date_click_data.get("dateStr", "").split("T")[0]
+    clicked_date = str(
+        date_click_data.get("dateStr") or date_click_data.get("date")
+    ).split("T")[0]
     if clicked_date:
       manage_event_dialog(clicked_date)
 
